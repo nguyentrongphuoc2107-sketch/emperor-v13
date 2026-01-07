@@ -5,132 +5,142 @@ import time
 import requests
 import random
 
-# --- 1. CẤU HÌNH HỆ THỐNG ---
-st.set_page_config(page_title="EMPEROR V25 SUPREMACY", layout="wide")
+# --- 1. CẤU HÌNH HỆ THỐNG YEAR 3000 ---
+st.set_page_config(page_title="EMPEROR V3000 QUANTUM", layout="wide", page_icon="🌪️")
 
-# CSS HACKER (GIỮ NGUYÊN GIAO DIỆN BÚ)
+# CSS: CYBERPUNK GOD MODE
 st.markdown("""
 <style>
-    .stApp {background-color: #050505; color: #00FF41; font-family: 'Segoe UI', sans-serif;}
+    .stApp {background-color: #000000; color: #00FF41; font-family: 'Courier New', monospace;}
+    
+    /* Card hiệu ứng Neon Breathing */
     .titan-card {
-        border: 2px solid #00FF41; background: linear-gradient(145deg, #0f1c10, #000);
-        padding: 25px; border-radius: 15px; text-align: center;
-        box-shadow: 0 0 25px rgba(0, 255, 65, 0.2); 
-        animation: pulse 3s infinite;
+        border: 1px solid #00FF41; 
+        background: linear-gradient(180deg, #051a05, #000);
+        padding: 25px; border-radius: 0px; text-align: center;
+        box-shadow: 0 0 20px rgba(0, 255, 65, 0.1); 
+        animation: breath 4s infinite;
         margin-bottom: 20px;
+        position: relative;
+        overflow: hidden;
     }
-    @keyframes pulse { 0% {box-shadow: 0 0 0 0 rgba(0, 255, 65, 0.4);} 70% {box-shadow: 0 0 0 15px rgba(0, 255, 65, 0);} 100% {box-shadow: 0 0 0 0 rgba(0, 255, 65, 0);} }
+    .titan-card::before {
+        content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 2px;
+        background: #00FF41; animation: scanline 2s linear infinite;
+    }
+    
+    @keyframes breath { 0% {border-color: #004d0c;} 50% {border-color: #00FF41; box-shadow: 0 0 30px rgba(0,255,65,0.3);} 100% {border-color: #004d0c;} }
+    @keyframes scanline { 0% {left: -100%;} 100% {left: 100%;} }
+
     .thesis-box {
-        border-left: 5px solid #FFD700; background-color: #111;
-        padding: 15px; margin-top: 15px; border-radius: 0 10px 10px 0;
-        color: #eee; font-style: italic; font-size: 1.05em;
+        border-left: 3px solid #FFD700; background-color: #0a0a0a;
+        padding: 15px; margin-top: 15px; 
+        color: #ddd; font-style: italic; font-size: 0.9em;
+        font-family: 'Segoe UI', sans-serif;
     }
+    
     .status-badge {
-        padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px;
+        padding: 2px 8px; border: 1px solid #333; font-size: 0.7em; text-transform: uppercase; letter-spacing: 2px;
     }
-    .live {background-color: #00FF41; color: #000; box-shadow: 0 0 10px #00FF41;}
-    .sim {background-color: #FF5500; color: #FFF;}
-    .metric-label {color: #888; font-size: 0.85em; letter-spacing: 1px;}
-    .metric-val {color: #fff; font-size: 1.6em; font-weight: 800;}
+    
+    /* Custom Metrics */
+    div[data-testid="stMetricValue"] {font-size: 1.8rem !important; color: #fff !important; text-shadow: 0 0 10px rgba(255,255,255,0.5);}
+    div[data-testid="stMetricLabel"] {color: #00FF41 !important; font-weight: bold;}
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. HÀM HỖ TRỢ (Đã fix lỗi hiển thị số quá lớn) ---
+# --- 2. HÀM HELPER ---
 def format_vnd(amount_usdt, rate):
     val = amount_usdt * rate
-    if val >= 1e9: return f"{val/1e9:.2f} Tỷ"
-    if val >= 1e6: return f"{val/1e6:.1f} Tr"
+    if val >= 1e9: return f"{val/1e9:.2f} TỶ"
+    if val >= 1e6: return f"{val/1e6:.1f} TR"
     return f"{val:,.0f} đ"
 
-# --- 3. BỘ NÃO TITAN (INJECT FIX LỖI & ANTI-DETECT PRO) ---
+# --- 3. QUANTUM BRAIN CORE ---
 class TitanBrain:
     def __init__(self):
         self.targets = [
             'BTC', 'ETH', 'SOL', 'BNB', 'DOGE', 
             'SUI', 'APT', 'NEAR', 'PEPE', 'XRP',
-            'LINK', 'ADA', 'AVAX', 'WIF' # Thêm coin hot
+            'LINK', 'ADA', 'AVAX', 'WIF', 'FET'
         ]
-        # [INJECT] List User-Agent để xoay vòng, tránh bị block IP
+        # Anti-Detect Layer
         self.user_agents = [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Safari/605.1.15',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36'
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+            'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0'
         ]
 
     def get_headers(self):
         return {'User-Agent': random.choice(self.user_agents)}
 
+    # --- KẾT NỐI VỆ TINH ---
     def fetch_binance(self, symbol):
         try:
-            url = f"https://api.binance.com/api/v3/klines?symbol={symbol}USDT&interval=15m&limit=60" # Lấy dư nến để tính EMA chính xác
-            r = requests.get(url, headers=self.get_headers(), timeout=3) # Tăng timeout lên 3s
+            url = f"https://api.binance.com/api/v3/klines?symbol={symbol}USDT&interval=15m&limit=60"
+            r = requests.get(url, headers=self.get_headers(), timeout=4)
             if r.status_code == 200:
                 data = r.json()
-                if len(data) > 30: # [FIX] Chỉ chấp nhận nếu đủ dữ liệu
-                    return [[float(x[0]), float(x[1]), float(x[2]), float(x[3]), float(x[4]), float(x[5])] for x in data], "LIVE (Binance)"
+                if len(data) > 30:
+                    return [[float(x[0]), float(x[1]), float(x[2]), float(x[3]), float(x[4]), float(x[5])] for x in data], "LIVE (BINANCE)"
         except: pass
         return None, None
 
     def fetch_coingecko(self, symbol):
         try:
-            # [FIX] Mapping đầy đủ hơn để tránh lỗi sai coin
             ids = {
                 'BTC':'bitcoin', 'ETH':'ethereum', 'SOL':'solana', 'BNB':'binancecoin', 'DOGE':'dogecoin',
                 'SUI':'sui', 'APT':'aptos', 'NEAR':'near', 'PEPE':'pepe', 'XRP':'ripple',
-                'LINK':'chainlink', 'ADA':'cardano', 'AVAX':'avalanche-2', 'WIF':'dogwifhat'
+                'LINK':'chainlink', 'ADA':'cardano', 'AVAX':'avalanche-2', 'WIF':'dogwifhat', 'FET':'fetch-ai'
             }
             cg_id = ids.get(symbol)
-            if not cg_id: return None, None # Bỏ qua nếu không có ID
+            if not cg_id: return None, None
 
             url = f"https://api.coingecko.com/api/v3/coins/{cg_id}/ohlc?vs_currency=usd&days=1"
-            r = requests.get(url, headers=self.get_headers(), timeout=3)
+            r = requests.get(url, headers=self.get_headers(), timeout=4)
             if r.status_code == 200:
                 data = r.json()
                 if len(data) > 30:
-                    # Fake volume thông minh hơn: Vol = Price * Random Factor
-                    formatted = [[x[0], x[1], x[2], x[3], x[4], x[4]*random.uniform(10, 50)] for x in data[-60:]]
-                    return formatted, "LIVE (Coingecko)"
+                    # Smart Mock Volume
+                    formatted = [[x[0], x[1], x[2], x[3], x[4], x[4]*random.uniform(500, 5000)] for x in data[-60:]]
+                    return formatted, "LIVE (GECKO)"
         except: pass
         return None, None
 
     def generate_simulation(self, symbol):
-        # [FIX] Giá cơ sở thực tế hơn
-        base_map = {'BTC': 95000, 'ETH': 3500, 'SOL': 200, 'BNB': 600}
+        # Fallback an toàn (Anti-Crash)
+        base_map = {'BTC': 96000, 'ETH': 3600, 'SOL': 210, 'BNB': 620}
         base_price = base_map.get(symbol, 100)
-        
         data = []
         price = base_price
         for i in range(60):
-            change = random.uniform(-0.015, 0.015)
+            change = random.uniform(-0.02, 0.02)
             open_p = price
             close_p = price * (1 + change)
-            high_p = max(open_p, close_p) * (1 + random.uniform(0, 0.005))
-            low_p = min(open_p, close_p) * (1 - random.uniform(0, 0.005))
-            vol = random.uniform(500, 2000)
+            high_p = max(open_p, close_p) * 1.005
+            low_p = min(open_p, close_p) * 0.995
+            vol = random.uniform(1000, 10000)
             data.append([time.time()*1000, open_p, high_p, low_p, close_p, vol])
             price = close_p
-        return data, "SIMULATION (Demo)"
+        return data, "SIMULATION (DEMO)"
 
     def get_data(self, symbol):
         data, source = self.fetch_binance(symbol)
         if data: return data, source
-        
         data, source = self.fetch_coingecko(symbol)
         if data: return data, source
-
         return self.generate_simulation(symbol)
 
+    # --- XỬ LÝ TÍN HIỆU ---
     def process_indicators(self, ohlcv):
         df = pd.DataFrame(ohlcv, columns=['time', 'open', 'high', 'low', 'close', 'vol'])
-        
-        if len(df) < 50: return None # [FIX] Tránh crash nếu ít nến
+        if len(df) < 50: return None
 
-        # EMA & Trend
+        # EMA
         df['ema34'] = df['close'].ewm(span=34).mean()
         df['ema89'] = df['close'].ewm(span=89).mean()
         
-        # RSI [FIX] Epsilon an toàn
+        # RSI
         delta = df['close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
@@ -143,7 +153,7 @@ class TitanBrain:
         df['macd'] = ema12 - ema26
         df['signal_line'] = df['macd'].ewm(span=9).mean()
         
-        # ATR (Stoploss)
+        # ATR
         df['tr'] = np.maximum((df['high'] - df['low']), abs(df['high'] - df['close'].shift(1)))
         df['atr'] = df['tr'].rolling(14).mean()
         
@@ -159,31 +169,22 @@ class TitanBrain:
         score = 50
         reasons = []
         
-        # --- LOGIC BÚ V25 (CẢI TIẾN) ---
-        # 1. Trend Filter
-        if d['close'] > d['ema89']: 
-            score += 20; reasons.append(f"Giá nằm trên EMA89 (Uptrend)")
-        else: 
-            score -= 20; reasons.append(f"Giá nằm dưới EMA89 (Downtrend)")
+        # Logic V3000
+        if d['close'] > d['ema89']: score += 20; reasons.append("Uptrend (Trên EMA89)")
+        else: score -= 20; reasons.append("Downtrend (Dưới EMA89)")
         
-        # 2. Momentum
-        if d['macd'] > d['signal_line']: score += 10; reasons.append("MACD cắt lên")
-        elif d['macd'] < d['signal_line']: score -= 10; reasons.append("MACD cắt xuống")
+        if d['macd'] > d['signal_line']: score += 10; reasons.append("MACD Bullish")
+        elif d['macd'] < d['signal_line']: score -= 10; reasons.append("MACD Bearish")
         
-        # 3. RSI Sniper
-        if 45 <= d['rsi'] <= 55: reasons.append("RSI trung tính, chờ break")
-        if d['rsi'] < 30: score += 15; reasons.append("RSI Quá bán (Vùng Mua Đẹp)")
-        if d['rsi'] > 70: score -= 15; reasons.append("RSI Quá mua (Cẩn trọng)")
+        if d['rsi'] < 30: score += 15; reasons.append("RSI Quá bán (Đáy)")
+        if d['rsi'] > 70: score -= 15; reasons.append("RSI Quá mua (Đỉnh)")
 
-        # Decision
         signal = "NEUTRAL"
         if score >= 70: signal = "LONG"
         elif score <= 30: signal = "SHORT"
         
-        # Safe ATR fallback
         atr_val = d['atr'] if not np.isnan(d['atr']) else d['close'] * 0.02
-
-        thesis = f"Nguồn dữ liệu: {source}. " + ", ".join(reasons) + "."
+        thesis = f"{source} Data. " + ", ".join(reasons) + "."
         
         return {
             "symbol": symbol, "signal": signal, "score": score,
@@ -195,94 +196,150 @@ class TitanBrain:
         entry = coin['price']
         atr = coin['atr']
         
-        # [FIX] Tỷ lệ R:R chuẩn chỉnh hơn cho Long/Short
         if coin['signal'] == "LONG":
             sl = entry - (atr * 2)
             tp1 = entry + (atr * 2)
-            tp2 = entry + (atr * 6) # R:R 1:3
+            tp2 = entry + (atr * 5)
         else:
             sl = entry + (atr * 2)
             tp1 = entry - (atr * 2)
-            tp2 = entry - (atr * 6)
+            tp2 = entry - (atr * 5)
         
         margin = (cap * 0.1) / lev
         return {"entry": entry, "tp1": tp1, "tp2": tp2, "sl": sl, "margin": margin}
 
-# --- 4. GIAO DIỆN CHÍNH ---
+    # --- TELEGRAM MODULE (MỚI) ---
+    def send_telegram(self, symbol, signal, score, p, thesis, token, chat_id):
+        if not token or not chat_id: return
+        
+        icon = "🟢" if signal == "LONG" else "🔴"
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        msg = (
+            f"🌪️ *TITAN V3000 ALERT*\n"
+            f"-------------------\n"
+            f"{icon} *SIGNAL:* {signal} (#{symbol})\n"
+            f"⚡ *Score:* {score}/100\n\n"
+            f"💵 Entry: {p['entry']:,.4f}\n"
+            f"🎯 TP1: {p['tp1']:,.4f}\n"
+            f"🚀 TP2: {p['tp2']:,.4f}\n"
+            f"🛡️ SL: {p['sl']:,.4f}\n\n"
+            f"📝 {thesis}"
+        )
+        try:
+            requests.post(url, json={"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"}, timeout=3)
+        except Exception as e:
+            print(f"Tele Err: {e}")
+
+# --- 4. GIAO DIỆN ĐIỀU KHIỂN ---
 bot = TitanBrain()
 
-st.title("🌪️ V25 TITAN: SUPREMACY")
-st.caption("Inject Fix: Anti-Detect Rotation • Smart Fallback • Bug Free Core") 
+# Session State để tránh spam tele
+if 'last_signal' not in st.session_state:
+    st.session_state.last_signal = None
+
+st.title("🌌 EMPEROR V3000: QUANTUM CORE")
+st.caption("AI Trading Neural Network • Telegram Integrated • Anti-Block Protocol")
+
 
 with st.sidebar:
-    st.header("⚡ CONTROL CENTER")
-    rate = st.number_input("Tỷ giá USDT:", 25750, step=10)
+    st.header("⚙️ SYSTEM CONFIG")
+    rate = st.number_input("Tỷ giá USDT:", 25750, step=50)
     cap = st.number_input("Vốn (VND):", 10000000, step=1000000)
-    lev = st.slider("Đòn bẩy:", 5, 125, 20)
+    lev = st.slider("Đòn bẩy (x):", 5, 125, 20)
+    
+    st.markdown("---")
+    st.header("📡 NEURAL LINK (TELEGRAM)")
+    tele_token = st.text_input("Bot Token:", type="password", help="Lấy từ BotFather")
+    tele_chat_id = st.text_input("Chat ID:", help="Lấy từ userinfobot")
+    enable_tele = st.checkbox("Kích hoạt bắn tín hiệu", value=False)
+    
+    st.markdown("---")
     refresh = st.number_input("Scan Time (s):", value=30, min_value=10)
-    auto = st.checkbox("🔮 AUTO-SCAN", value=True)
-    if st.button("🚀 SCAN NGAY"): auto = True
+    auto = st.checkbox("🔮 AUTO-HUNT", value=True)
+    if st.button("🚀 FORCE SCAN"): auto = True
 
+# --- 5. MAIN LOOP ---
 if auto:
-    res_container = st.empty()
-    with res_container.container():
-        st.info("📡 Titan đang kết nối đa vệ tinh (Binance/Coingecko)...")
+    placeholder = st.empty()
+    with placeholder.container():
+        st.info("📡 Titan đang quét sóng vũ trụ...")
+        
+        # Progress Bar ảo diệu
+        progress_bar = st.progress(0)
         results = []
-        bar = st.progress(0)
         
         for i, sym in enumerate(bot.targets):
             data = bot.analyze(sym)
             if data: results.append(data)
-            bar.progress((i+1)/len(bot.targets))
-            # [FIX] Delay random để giống người thật hơn
-            time.sleep(random.uniform(0.1, 0.3))
-        bar.empty()
-        
+            progress_bar.progress((i + 1) / len(bot.targets))
+            time.sleep(random.uniform(0.05, 0.15)) # Tốc độ quét cực nhanh
+            
+        progress_bar.empty()
+
         if results:
-            # Lấy kèo ngon nhất
+            # Chọn con ngon nhất
             best = sorted(results, key=lambda x: abs(x['score']-50), reverse=True)[0]
             
-            # Chỉ hiện khi có tín hiệu rõ ràng
+            # Logic hiển thị
             if best['signal'] != "NEUTRAL":
                 p = bot.plan(best, cap, lev)
                 c_color = "#00FF41" if best['signal'] == "LONG" else "#FF0041"
-                
                 status_class = "live" if "LIVE" in best['source'] else "sim"
                 
+                # TITAN CARD
                 st.markdown(f"""
                 <div class='titan-card' style='border-color: {c_color};'>
-                    <div style='display:flex; justify-content:space-between;'>
+                    <div style='display:flex; justify-content:space-between; margin-bottom:10px;'>
                         <span class='status-badge {status_class}'>{best['source']}</span>
-                        <span style='color:#666'>#{best['symbol']}</span>
+                        <span style='color:#888; letter-spacing:2px; font-weight:bold;'>#{best['symbol']}</span>
                     </div>
-                    <h1 style='color:{c_color}; font-size: 4em; margin: 10px 0; letter-spacing: 2px;'>{best['signal']}</h1>
-                    <div style='background:#111; display:inline-block; padding:5px 20px; border-radius:15px; border:1px solid #333;'>
-                        POWER SCORE: <span style='color:{c_color}; font-weight:bold'>{best['score']}/100</span>
+                    <div style='font-size: 5em; font-weight: 900; color:{c_color}; text-shadow: 0 0 20px {c_color}; margin: 10px 0;'>
+                        {best['signal']}
                     </div>
-                    <hr style='border-color: #333; margin: 20px 0;'>
-                    <div style='display:grid; grid-template-columns: 1fr 1fr; gap: 20px;'>
-                        <div><span class='metric-label'>ENTRY PRICE</span><br><span class='metric-val'>{p['entry']:,.4f}</span></div>
-                        <div><span class='metric-label'>VOLUME (VND)</span><br><span class='metric-val' style='color:#FFD700'>{format_vnd(p['margin'], rate)}</span></div>
+                    <div style='background:rgba(255,255,255,0.05); display:inline-block; padding:5px 20px; border-radius:5px;'>
+                        CONFIDENCE: <span style='color:{c_color}; font-weight:bold'>{best['score']}%</span>
+                    </div>
+                    <hr style='border-color: #333; margin: 20px 0; opacity:0.5;'>
+                    <div style='display:grid; grid-template-columns: 1fr 1fr; gap: 10px;'>
+                        <div><span class='metric-label'>ENTRY ZONE</span><br><span class='metric-val'>{p['entry']:,.4f}</span></div>
+                        <div><span class='metric-label'>MARGIN SIZE</span><br><span class='metric-val' style='color:#FFD700'>{format_vnd(p['margin'], rate)}</span></div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-                
-                c1, c2, c3 = st.columns(3)
-                c1.metric("🎯 TP1 (Safe)", f"{p['tp1']:,.4f}")
-                c2.metric("🚀 TP2 (Moon)", f"{p['tp2']:,.4f}")
-                c3.metric("🛡️ STOPLOSS", f"{p['sl']:,.4f}", delta_color="inverse")
-                
-                st.markdown(f"<div class='thesis-box'>📝 <b>PHÂN TÍCH TITAN:</b><br>{best['thesis']}</div>", unsafe_allow_html=True)
-            else:
-                st.warning("⚠️ Thị trường Sideway (Đi ngang). Bot chưa tìm thấy tín hiệu > 70 điểm.")
-                
-        else:
-            st.error("⚠️ Toàn bộ vệ tinh bị chặn. Vui lòng F5 lại trang!")
 
+                # METRICS ROW
+                c1, c2, c3 = st.columns(3)
+                c1.metric("TARGET 1 (SAFE)", f"{p['tp1']:,.4f}")
+                c2.metric("TARGET 2 (MOON)", f"{p['tp2']:,.4f}")
+                c3.metric("STOPLOSS (HARD)", f"{p['sl']:,.4f}", delta_color="inverse")
+
+                # THESIS BOX
+                st.markdown(f"<div class='thesis-box'>🧬 <b>TITAN ANALYSIS:</b> {best['thesis']}</div>", unsafe_allow_html=True)
+                
+                # LOGIC BẮN TELEGRAM (CHỈ BẮN KHI TÍN HIỆU THAY ĐỔI HOẶC COIN MỚI)
+                signal_signature = f"{best['symbol']}-{best['signal']}"
+                if enable_tele and st.session_state.last_signal != signal_signature:
+                    with st.spinner("Đang truyền tin về Trái Đất..."):
+                        bot.send_telegram(best['symbol'], best['signal'], best['score'], p, best['thesis'], tele_token, tele_chat_id)
+                        st.session_state.last_signal = signal_signature
+                        st.toast(f"Đã bắn tín hiệu {best['symbol']} về Telegram!", icon="🚀")
+
+            else:
+                st.warning("⚠️ Thị trường Sideway. Bot đang ở chế độ chờ (Sleep Mode)...")
+                st.markdown(f"""
+                    <div style='text-align:center; color:#555; padding:20px;'>
+                        Không tìm thấy cơ hội có điểm số > 70.<br>
+                        Coin mạnh nhất hiện tại: <b>{best['symbol']}</b> ({best['score']}/100)
+                    </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.error("⚠️ MẤT KẾT NỐI VỆ TINH. ĐANG THỬ LẠI...")
+
+    # Đếm ngược
     time.sleep(1)
     if auto:
         with st.empty():
             for s in range(refresh, 0, -1):
-                st.write(f"⏳ Titan đang ẩn mình... {s}s")
+                st.write(f"⏳ Next Scan: {s}s")
                 time.sleep(1)
         st.rerun()
