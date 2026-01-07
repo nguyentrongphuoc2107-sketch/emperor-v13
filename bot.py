@@ -1,289 +1,314 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import random
 import time
-import ccxt # <--- TRÁI TIM REAL-TIME (Cần pip install ccxt)
+import ccxt
+import requests
 
-# --- CẤU HÌNH TRANG (GIỮ NGUYÊN UI V13/V15) ---
-st.set_page_config(
-    page_title="DEMON v15.5 - THE TITAN (FIXED MATH)",
-    page_icon="👹",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# --- 1. CONFIG TELEGRAM (CEO CONTROL) ---
+TELEGRAM_TOKEN = "8526079835:AAEmdcFeACgvqdWF8vfkWG46Qq7_uZ7ztmE"
+CHAT_ID = "1654323145" 
 
-# CSS TỐI ƯU (GIỮ NGUYÊN KHÔNG SỬA)
+def send_telegram_alert(symbol, signal, score, entry, tp1, tp2, sl, reasons):
+    """Gửi tín hiệu Thần Thánh về Telegram"""
+    icon = "🟢" if signal == "LONG" else "🔴"
+    msg = (
+        f"👹 *DEMON V17 - GOD MODE ACTIVATED* {icon}\n\n"
+        f"💎 *Asset:* #{symbol}\n"
+        f"🚀 *Signal:* {signal}\n"
+        f"💯 *Confidence:* {score}/100\n"
+        f"-------------------\n"
+        f"⚡ Entry: {entry:.4f}\n"
+        f"🎯 TP1: {tp1:.4f}\n"
+        f"🎯 TP2: {tp2:.4f}\n"
+        f"🛑 SL: {sl:.4f}\n\n"
+        f"🧠 *Phân tích Tinh hoa:*\n"
+        f"{' • '.join(reasons)}\n"
+        f"_Kiểm tra chart ngay!_"
+    )
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={msg}&parse_mode=Markdown"
+    try:
+        requests.get(url, timeout=5)
+    except:
+        pass
+
+# --- 2. CONFIG GIAO DIỆN SIÊU CẤP ---
+st.set_page_config(page_title="DEMON GOD MODE V17", layout="wide")
 st.markdown("""
 <style>
-    .stApp {background-color: #050505; color: #e0e0e0; font-family: 'Consolas', monospace;}
+    .stApp {background-color: #000000; color: #00FF00; font-family: 'Courier New', monospace;}
     .metric-card {
-        background-color: #0f111a; border: 1px solid #333; padding: 15px; border-radius: 8px; 
-        text-align: center; box-shadow: 0 0 15px rgba(255, 215, 0, 0.1);
+        background: linear-gradient(135deg, #111, #222); 
+        border: 1px solid #00FF00; padding: 20px; border-radius: 12px; 
+        text-align: center; box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
     }
-    .coin-header {font-size: 56px !important; font-weight: 900; color: #f0b90b; letter-spacing: 3px; text-shadow: 0 0 10px #f0b90b;}
+    .coin-header {font-size: 60px !important; font-weight: 900; color: #FFD700; text-shadow: 0 0 10px #FFD700;}
     .price-display {font-size: 32px !important; font-weight: bold; color: #fff;}
-    .profit-text {color: #00ff41; font-weight: bold; font-size: 22px;}
-    .loss-text {color: #ff4b4b; font-weight: bold; font-size: 22px;}
-    
     .reason-box {
-        border-left: 4px solid #f0b90b; padding-left: 15px; background: #1a1a1a; 
-        margin-top: 10px; font-size: 14px; color: #ccc;
-    }
-    
-    .risk-alert {
-        background-color: #3d0000; border: 2px solid #ff0000; color: #ff4b4b; 
-        padding: 10px; font-weight: bold; text-align: center; animation: blinker 1.5s linear infinite;
-    }
-    @keyframes blinker { 50% { opacity: 0.5; } }
-
-    .quote-footer {font-style: italic; color: #888; text-align: center; margin-top: 20px;}
-    
-    .stButton>button {
-        background: linear-gradient(90deg, #c49902, #ffd700);
-        color: black; font-weight: 900; height: 70px; font-size: 24px; 
-        border-radius: 4px; border: none;
+        border-left: 3px solid #00FF00; padding-left: 10px; margin-bottom: 8px; 
+        font-size: 14px; color: #ccc;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Tỷ giá & Tham số (FIXED)
-USD_VNDC = 25650 
-PHO_PRICE = 45000 
-
-# --- CLASS PHÂN TÍCH CHUYÊN GIA (TITAN BRAIN) ---
+# --- 3. CLASS TITAN BRAIN (NÂNG CẤP TOÀN DIỆN) ---
 class TitanBrain:
     def __init__(self):
-        # 1. KẾT NỐI BINANCE FUTURES (REAL-TIME)
         try:
-            self.exchange = ccxt.binance({
-                'options': {'defaultType': 'future'},
-                'enableRateLimit': True
-            })
-        except Exception as e:
-            st.error(f"Lỗi kết nối sàn: {e}")
+            self.exchange = ccxt.binance({'options': {'defaultType': 'future'}, 'enableRateLimit': True})
+        except:
             self.exchange = None
+        # [NEW] List Coin "Dễ Bú" (Biên độ dao động tốt, thanh khoản cao)
+        self.target_symbols = [
+            'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT', # Trụ
+            'DOGE/USDT', 'PEPE/USDT', 'WIF/USDT', # Meme (Vol to)
+            'NEAR/USDT', 'APT/USDT', 'SUI/USDT', 'LINK/USDT', 'AVAX/USDT', 'FET/USDT', 'RNDR/USDT' # Altcoin xịn
+        ]
 
-        # Danh sách Coin mục tiêu
-        self.target_symbols = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'DOGE/USDT', 'PEPE/USDT', 'BNB/USDT', 'WIF/USDT']
-        
-    def fetch_real_price(self, symbol):
-        """Lấy giá Last Price thực tế từ Binance"""
-        if self.exchange:
-            try:
-                ticker = self.exchange.fetch_ticker(symbol)
-                return ticker['last']
-            except:
-                return None
-        return None
+    # [NEW] Tính Bollinger Bands (Dải băng biến động)
+    def calculate_bollinger_bands(self, df, period=20, std_dev=2):
+        df['ma_20'] = df['close'].rolling(window=period).mean()
+        df['std_dev'] = df['close'].rolling(window=period).std()
+        df['upper_bb'] = df['ma_20'] + (df['std_dev'] * std_dev)
+        df['lower_bb'] = df['ma_20'] - (df['std_dev'] * std_dev)
+        return df
 
-    def format_vndc(self, amount):
-        """Format số tiền VNDC cho dễ đọc"""
-        return f"{amount:,.0f} VNDC"
+    # [NEW] Tính MACD (Momentum)
+    def calculate_macd(self, df, fast=12, slow=26, signal=9):
+        exp1 = df['close'].ewm(span=fast, adjust=False).mean()
+        exp2 = df['close'].ewm(span=slow, adjust=False).mean()
+        df['macd'] = exp1 - exp2
+        df['signal_line'] = df['macd'].ewm(span=signal, adjust=False).mean()
+        return df
 
-    def convert_to_pho(self, profit_vnd):
-        bowls = profit_vnd / PHO_PRICE
-        if bowls < 1: return "1 Ly Cafe Vỉa Hè"
-        return f"{int(bowls)} Bát Phở Bò Đặc Biệt"
+    def calculate_rsi(self, series, period=14):
+        delta = series.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+        rs = gain / (loss + 1e-9)
+        return 100 - (100 / (1 + rs))
 
-    def get_titan_analysis(self):
-        """SIÊU THUẬT TOÁN TITAN (SMC + Realtime Price)"""
+    def fetch_market_context(self, symbol):
+        if not self.exchange: return None
+        try:
+            # Lấy nhiều nến hơn để tính chỉ báo phức tạp
+            ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe='15m', limit=100)
+            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+            
+            # Lấy khung 4H để check Trend lớn
+            ohlcv_4h = self.exchange.fetch_ohlcv(symbol, timeframe='4h', limit=50)
+            df_4h = pd.DataFrame(ohlcv_4h, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+            
+            # Spread Check
+            ticker = self.exchange.fetch_ticker(symbol)
+            spread_pct = (ticker['ask'] - ticker['bid']) / ticker['ask'] * 100
+
+            # --- TÍNH TOÁN "GOD MODE" INDICATORS ---
+            df['tr'] = np.maximum((df['high'] - df['low']), np.maximum(abs(df['high'] - df['close'].shift(1)), abs(df['low'] - df['close'].shift(1))))
+            atr = df['tr'].rolling(14).mean().iloc[-1]
+            
+            df['rsi'] = self.calculate_rsi(df['close'])
+            df = self.calculate_bollinger_bands(df)
+            df = self.calculate_macd(df)
+
+            # Xu hướng & EMA
+            ema_20_15m = df['close'].ewm(span=20).mean().iloc[-1]
+            ema_50_15m = df['close'].ewm(span=50).mean().iloc[-1] # [NEW] EMA 50
+            
+            trend_15m = "UP" if df['close'].iloc[-1] > ema_20_15m else "DOWN"
+            
+            ema_20_4h = df_4h['close'].ewm(span=20).mean().iloc[-1]
+            trend_4h = "UP" if df_4h['close'].iloc[-1] > ema_20_4h else "DOWN"
+
+            # Swing Points
+            recent = df.iloc[-10:-1] # [NEW] Quét rộng hơn (10 nến)
+            swing_low, swing_high = recent['low'].min(), recent['high'].max()
+
+            # Volume Analysis
+            avg_vol = df['volume'].rolling(20).mean().iloc[-1]
+            cur_vol = df['volume'].iloc[-1]
+            vol_spike = cur_vol > (avg_vol * 1.5) # [NEW] Vol gấp 1.5 lần TB
+
+            # FVG Logic
+            c1, c3 = df.iloc[-4], df.iloc[-2]
+            fvg = "Bullish FVG" if c1['high'] < c3['low'] else ("Bearish FVG" if c1['low'] > c3['high'] else None)
+
+            return {
+                "symbol": symbol, "price": df['close'].iloc[-1], "atr": atr,
+                "rsi": df['rsi'].iloc[-1], 
+                "macd": df['macd'].iloc[-1], "macds": df['signal_line'].iloc[-1],
+                "bb_upper": df['upper_bb'].iloc[-1], "bb_lower": df['lower_bb'].iloc[-1],
+                "trend_15m": trend_15m, "trend_4h": trend_4h, "ema_50": ema_50_15m,
+                "vol_spike": vol_spike, "spread": spread_pct, "fvg": fvg,
+                "low": swing_low, "high": swing_high, "is_green": df['close'].iloc[-1] > df['open'].iloc[-1]
+            }
+        except: return None
+
+    # [SUPER BRAIN] Logic phân tích tổng hợp V17
+    def get_god_mode_analysis(self):
         analyzed_data = []
+        
+        # Quét dữ liệu (Hiển thị Progress Bar cho chuyên nghiệp)
+        progress_text = "🧠 Đang kích hoạt Titan Brain quét thị trường..."
+        my_bar = st.progress(0, text=progress_text)
+        
+        raw_contexts = []
+        total_coins = len(self.target_symbols)
+        for i, symbol in enumerate(self.target_symbols):
+            ctx = self.fetch_market_context(symbol)
+            if ctx: raw_contexts.append(ctx)
+            my_bar.progress((i + 1) / total_coins, text=f"Đang phân tích {symbol}...")
+        
+        my_bar.empty() # Xóa thanh loading khi xong
 
-        for symbol in self.target_symbols:
-            real_price = self.fetch_real_price(symbol)
-            if real_price is None: continue 
-
-            # --- LOGIC PHÂN TÍCH GIẢ LẬP DỰA TRÊN GIÁ THẬT ---
-            score = 0
+        for ctx in raw_contexts:
+            # 1. BỘ LỌC RÁC
+            if ctx['spread'] > 0.15: continue # Spread cao bỏ qua
+            
+            score = 50 # Điểm cơ bản
             reasons = []
+            signal = "NEUTRAL"
             
-            # 1. Trend
-            trend = random.choice(["UP", "DOWN"]) 
-            signal = "LONG" if trend == "UP" else "SHORT"
+            # 2. PHÂN TÍCH LOGIC (SỰ HỢP LƯU)
             
-            # 2. Setup SMC
-            setup = random.choice(["Bullish OB H1", "Bearish FVG H4", "Liquidity Sweep M15", "Breaker Block"])
+            # --- LONG LOGIC ---
+            # Giá > EMA50 (Trend dài mạnh) + Trend 15m Tăng
+            bullish_structure = ctx['price'] > ctx['ema_50'] and ctx['trend_15m'] == "UP"
             
-            if "Bullish" in setup and signal == "LONG": score += 30
-            elif "Bearish" in setup and signal == "SHORT": score += 30
-            else: score += 10
+            if bullish_structure:
+                # Điều kiện RSI: Không quá mua gắt, trừ khi Vol siêu mạnh
+                if ctx['rsi'] < 75 or (ctx['rsi'] < 85 and ctx['vol_spike']):
+                    signal = "LONG"
+                    score += 10; reasons.append("Cấu trúc giá Tăng (Trên EMA 50)")
+                    
+                    # Cộng điểm MACD (Golden Cross)
+                    if ctx['macd'] > ctx['macds']:
+                        score += 15; reasons.append("MACD cắt lên (Momentum Tăng)")
+                    
+                    # Cộng điểm Bollinger Bands (Bám biên trên)
+                    if ctx['price'] > ctx['bb_upper'] * 0.99:
+                        score += 10; reasons.append("Giá bám dải trên BB (Lực mạnh)")
+                        
+                    # Cộng điểm Đồng pha 4H
+                    if ctx['trend_4h'] == "UP":
+                        score += 15; reasons.append("Đồng pha khung 4H (Sóng thần)")
 
-            # 3. Lý do nghị luận
-            reasons.append(f"Giá hiện tại **{real_price}** đang phản ứng tại vùng **{setup}**.")
+            # --- SHORT LOGIC ---
+            # Giá < EMA50 + Trend 15m Giảm
+            bearish_structure = ctx['price'] < ctx['ema_50'] and ctx['trend_15m'] == "DOWN"
             
-            if signal == "LONG":
-                reasons.append("Phe Gấu đã kiệt sức. Market Maker đang gom hàng tại vùng Discount để đẩy giá lên.")
-                reasons.append("Cấu trúc thị trường (MS) chuyển Bullish. Đây là điểm entry tỷ lệ thắng cao.")
-            else:
-                reasons.append("Bẫy Bull Trap xuất hiện. Thanh khoản bên dưới chưa bị quét, giá sẽ sập để kill Long.")
-                reasons.append("Mô hình Phân phối Wyckoff hoàn tất pha UTAD. Đừng để đám đông FOMO lừa.")
+            if bearish_structure:
+                if ctx['rsi'] > 25 or (ctx['rsi'] > 15 and ctx['vol_spike']):
+                    signal = "SHORT"
+                    score += 10; reasons.append("Cấu trúc giá Giảm (Dưới EMA 50)")
+                    
+                    # Cộng điểm MACD (Death Cross)
+                    if ctx['macd'] < ctx['macds']:
+                        score += 15; reasons.append("MACD cắt xuống (Momentum Giảm)")
+                        
+                    # Cộng điểm Bollinger Bands (Bám biên dưới)
+                    if ctx['price'] < ctx['bb_lower'] * 1.01:
+                        score += 10; reasons.append("Giá bám dải dưới BB (Xả hàng)")
 
-            # 4. Chỉ số cảm xúc
-            fng = random.randint(10, 90)
-            if fng > 80 and signal == "SHORT":
-                score += 20; reasons.append(f"F&G Index: {fng} (Cực tham) -> Short thẳng tay theo lời Soros.")
-            elif fng < 20 and signal == "LONG":
-                score += 20; reasons.append(f"F&G Index: {fng} (Cực sợ) -> Cơ hội mua đáy khi đám đông hoảng loạn.")
+                    # Cộng điểm Đồng pha 4H
+                    if ctx['trend_4h'] == "DOWN":
+                        score += 15; reasons.append("Đồng pha khung 4H (Sóng thần)")
 
-            final_score = min(score + random.randint(10, 30), 99)
+            # 3. CÁC YẾU TỐ CỘNG THÊM (BONUS)
+            if signal != "NEUTRAL":
+                if ctx['vol_spike']: 
+                    score += 15; reasons.append("⚡ Volume Đột biến (Cá mập vào hàng)")
+                if ctx['fvg']:
+                    score += 10; reasons.append(f"Phản ứng tại {ctx['fvg']}")
 
-            analyzed_data.append({
-                "symbol": symbol.replace("/USDT", ""),
-                "price": real_price,
-                "signal": signal,
-                "score": final_score,
-                "reasons": reasons,
-                "setup": setup
-            })
+            # Lọc cuối cùng: Chỉ lấy kèo > 65 điểm
+            if score >= 65 and signal != "NEUTRAL":
+                analyzed_data.append({
+                    "symbol": ctx['symbol'].replace("/USDT", ""),
+                    "price": ctx['price'], "atr": ctx['atr'],
+                    "signal": signal, "score": score, "reasons": reasons,
+                    "rsi": ctx['rsi'], "low": ctx['low'], "high": ctx['high']
+                })
 
-        analyzed_data.sort(key=lambda x: x['score'], reverse=True)
-        return analyzed_data[0] if analyzed_data else None
+        if not analyzed_data: return None
+        # Trả về con ngon nhất (Điểm cao nhất)
+        return sorted(analyzed_data, key=lambda x: x['score'], reverse=True)[0]
 
-    # --- ĐOẠN ĐÃ ĐƯỢC INJECT SỬA LỖI MATH (QUAN TRỌNG NHẤT) ---
-    def calculate_kelly_v15_fixed(self, coin_data, capital_input_vndc, leverage):
-        """
-        LOGIC TÍNH TOÁN CHUẨN ĐÉT CHO ONUS (FIXED)
-        """
-        entry = coin_data['price']
+    def calculate_steel_risk(self, coin, capital, lev, mode):
+        entry = coin['price']
+        atr = coin['atr']
         
-        # 1. TÍNH MARGIN & VOLUME (Theo VNDC)
-        # Quy tắc: Chỉ dùng 10% vốn làm ký quỹ
-        margin_vndc = capital_input_vndc * 0.10
+        # Buffer SL linh hoạt theo chế độ
+        atr_mult = 2.0 if mode == 'Học Đường/Qua Đêm (Swing)' else 1.2
         
-        # Volume vào lệnh (tính ra VNDC) = Margin * Đòn bẩy
-        position_size_vndc = margin_vndc * leverage
+        if coin['signal'] == "LONG":
+            sl = entry - (atr * atr_mult)
+            # Không để SL quá gần (min 0.4%)
+            if (entry - sl) / entry < 0.004: sl = entry * 0.996
+            tp1 = entry + (entry - sl) * 1.5 # R:R 1:1.5
+            tp2 = entry + (entry - sl) * 3.0 # R:R 1:3 (Ăn dày)
+        else:
+            sl = entry + (atr * atr_mult)
+            if (sl - entry) / entry < 0.004: sl = entry * 1.004
+            tp1 = entry - (sl - entry) * 1.5
+            tp2 = entry - (sl - entry) * 3.0
+
+        # Quản lý vốn Kelly (Giả lập) - Đi volume vừa phải
+        risk_per_trade = capital * 0.05 # Rủi ro 5% vốn cho kèo God Mode
+        dist_pct = abs(entry - sl) / entry
+        pos_size = risk_per_trade / dist_pct
+        margin = min(pos_size / lev, capital)
         
-        # Chuyển Volume sang USD để tính lãi lỗ theo biến động giá coin
-        position_size_usd = position_size_vndc / USD_VNDC
+        return {"entry": entry, "tp1": tp1, "tp2": tp2, "sl": sl, "margin": margin}
 
-        # 2. TÍNH TP/SL (Theo %)
-        # Giả lập biên độ TP/SL
-        sl_percent = random.uniform(0.008, 0.015) # 0.8% - 1.5% biến động giá
-        tp_percent = sl_percent * 1.5             # R:R 1:1.5
+# --- 4. MAIN APP ---
+bot = TitanBrain()
+st.title("👹 DEMON V17 - GOD MODE TRADING")
+st.caption("🔥 Tích hợp: Bollinger Bands, MACD, Volume Spike, Smart Scoring & Multi-Timeframe")
 
-        if coin_data['signal'] == "LONG":
-            sl_price = entry * (1 - sl_percent)
-            tp_price = entry * (1 + tp_percent)
-        else: # SHORT
-            sl_price = entry * (1 + sl_percent)
-            tp_price = entry * (1 - tp_percent)
-
-        # 3. TÍNH LÃI/LỖ DỰ KIẾN (VNDC)
-        # Lãi = Volume (USD) * %Biến động giá * Tỷ giá
-        gross_profit_vndc = (position_size_usd * tp_percent) * USD_VNDC
-        gross_loss_vndc   = (position_size_usd * sl_percent) * USD_VNDC
-        
-        # Trừ phí sàn (0.06% tổng volume)
-        fee_vndc = position_size_vndc * 0.0006
-        
-        net_profit_vndc = gross_profit_vndc - fee_vndc
-        net_loss_vndc = gross_loss_vndc + fee_vndc # Lỗ thì cộng thêm phí càng lỗ
-
-        return entry, tp_price, sl_price, net_profit_vndc, net_loss_vndc, margin_vndc
-
-# --- GIAO DIỆN CHÍNH ---
-st.title("👹 DEMON v15.5 - THE TITAN (MATH FIXED)")
-st.markdown("*\"Trong đầu tư, cái đúng không quan trọng, quan trọng là kiếm bao nhiêu khi đúng.\" - George Soros*")
-
-# SIDEBAR
 with st.sidebar:
-    st.header("💼 VỐN & QUẢN TRỊ (ONUS)")
-    # Input chuẩn VNDC
-    capital_input = st.number_input("Vốn Huyết Mạch (VNDC):", 100000, 100000000, 200000, step=50000)
+    st.header("⚙️ CẤU HÌNH")
+    cap = st.number_input("Vốn (VNDC):", value=500000, step=100000)
+    lev = st.slider("Đòn bẩy (Leverage):", 5, 125, 20)
+    mode = st.radio("Style đánh:", ["Scalping (Nhanh - Ăn xổi)", "Học Đường/Qua Đêm (Swing - Ăn dày)"])
     
-    st.markdown("---")
-    st.header("⚙️ CẤU HÌNH RISK")
-    
-    leverage = st.slider("Đòn bẩy (Leverage)", 5, 125, 20)
-    if leverage > 20 and capital_input < 500000:
-        st.markdown("<div class='risk-alert'>⚠️ CẢNH BÁO: RỦI RO CAO VỚI VỐN NHỎ!</div>", unsafe_allow_html=True)
-    
-    st.toggle("SMC Order Block Scan", value=True)
-    st.toggle("Wyckoff Phase Detect", value=True)
-    
-    scan = st.button("🚀 QUÉT KÈO REAL-TIME")
-    
-    if st.button("🏁 RÚT QUÂN (ĐỦ TARGET)"):
-        st.balloons()
-        st.success("CEO Makao Phuocdz hãy tắt máy! Kỷ luật là sức mạnh.")
-
-# LOGIC CHÍNH
-if scan:
-    bot = TitanBrain()
-    
-    with st.spinner("🔌 Kết nối Binance Futures... Đang tải giá thị trường..."):
-        time.sleep(1.5)
+    if st.button("🚀 KÍCH HOẠT GOD MODE", type="primary"):
+        best_coin = bot.get_god_mode_analysis()
         
-    best_coin = bot.get_titan_analysis()
-    
-    if best_coin:
-        # GỌI HÀM ĐÃ FIX LỖI MATH
-        entry, tp, sl, profit, loss, margin = bot.calculate_kelly_v15_fixed(best_coin, capital_input, leverage)
-
-        # --- HIỂN THỊ KẾT QUẢ ---
-        col1, col2 = st.columns([1.5, 2.5])
-
-        with col1:
-            color = "#00ff41" if best_coin['signal'] == "LONG" else "#ff4b4b"
-            st.markdown(f"""
-            <div class='metric-card'>
-                <div style='color: #888;'>ASSET (BINANCE)</div>
-                <div class='coin-header'>{best_coin['symbol']}</div>
-                <div style='font-size: 48px; font-weight: 900; color: {color}'>{best_coin['signal']}</div>
-                <div style='background: #333; color: #fff; padding: 5px; margin-top:10px;'>GIÁ THỰC: {best_coin['price']} $</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        with col2:
-            st.subheader("📝 PHÂN TÍCH TITAN (DOANH NHÂN)") 
+        if best_coin:
+            plan = bot.calculate_steel_risk(best_coin, cap, lev, mode)
             
-            quotes = [
-                "Jesse Livermore: 'Tiền được làm ra khi ngồi chờ đợi, không phải lúc giao dịch.'",
-                "Warren Buffett: 'Rủi ro đến từ việc bạn không biết mình đang làm gì.'",
-                "George Soros: 'Tôi giàu có vì tôi biết khi nào mình sai.'"
-            ]
-            st.caption(f"💡 *{random.choice(quotes)}*")
+            # Gửi Telegram
+            send_telegram_alert(
+                best_coin['symbol'], best_coin['signal'], best_coin['score'], 
+                plan['entry'], plan['tp1'], plan['tp2'], plan['sl'], best_coin['reasons']
+            )
+            st.toast("Đã bắn tín hiệu lên Vũ Trụ Telegram!", icon="🛰️")
+
+            # UI Hiển thị
+            c1, c2 = st.columns([1.5, 2.5])
+            with c1:
+                color = "#00FF00" if best_coin['signal'] == "LONG" else "#FF0000"
+                st.markdown(f"""
+                <div class='metric-card'>
+                    <div style='color: #888;'>VICTORY TARGET</div>
+                    <div class='coin-header'>{best_coin['symbol']}</div>
+                    <div style='font-size: 48px; font-weight: 900; color: {color}'>{best_coin['signal']}</div>
+                    <div style='margin-top: 10px; background: #333; color: white;'>RSI: {best_coin['rsi']:.1f}</div>
+                </div>
+                """, unsafe_allow_html=True)
             
-            for reason in best_coin['reasons']:
-                st.markdown(f"<div class='reason-box'>➤ {reason}</div>", unsafe_allow_html=True)
+            with c2:
+                st.markdown(f"### 🛡️ CONFIDENCE SCORE: {best_coin['score']}/100")
+                st.write("Logic phân tích:")
+                for r in best_coin['reasons']:
+                    st.markdown(f"<div class='reason-box'>➤ {r}</div>", unsafe_allow_html=True)
             
-            st.markdown(f"<br><b>TIN CẬY (SMC SCORE):</b> <span style='color:#f0b90b; font-size:20px'> {best_coin['score']}/100</span>", unsafe_allow_html=True)
-
-        st.markdown("---")
-
-        # --- BẢNG CHIẾN THUẬT (CHUẨN VNDC ONUS) ---
-        st.header(f"💎 KẾ HOẠCH TÁC CHIẾN (VỐN {bot.format_vndc(capital_input)})")
-        
-        m1, m2, m3, m4 = st.columns(4)
-        with m1:
-            st.info("ENTRY (LIMIT)")
-            st.markdown(f"<span class='price-display'>{entry}</span>", unsafe_allow_html=True)
-            st.caption(f"Ký quỹ: {bot.format_vndc(margin)} (10% Vốn)")
-        
-        with m2:
-            st.success("TAKE PROFIT")
-            st.markdown(f"<span class='price-display' style='color:#00ff41'>{tp:.4f}</span>", unsafe_allow_html=True)
-            st.markdown(f"Lãi ròng: **+{bot.format_vndc(profit)}**") # ĐÃ FIX
-            st.caption(f"🎁 Đổi được: **{bot.convert_to_pho(profit)}**") 
-        
-        with m3:
-            st.error("STOP LOSS")
-            st.markdown(f"<span class='price-display' style='color:#ff4b4b'>{sl:.4f}</span>", unsafe_allow_html=True)
-            st.markdown(f"Chấp nhận mất: **-{bot.format_vndc(loss)}**") # ĐÃ FIX
-        
-        with m4:
-            st.warning("TÂM LÝ CHIẾN") 
-            st.markdown("""
-            * **Vị thế:** Cá mập (Smart Money)
-            * **Kế hoạch:** Săn thanh khoản (Hunt)
-            * **Kỷ luật:** Tuyệt đối tuân thủ SL.
-            """)
-
-        st.markdown("---")
-        st.markdown("<div class='quote-footer'>\"Thị trường là công cụ chuyển tiền từ kẻ thiếu kiên nhẫn sang người kiên nhẫn.\"</div>", unsafe_allow_html=True)
-    else:
-        st.error("⚠️ Không lấy được dữ liệu Binance. Kiểm tra lại mạng internet!")
-
-else:
-    st.info("👋 Chào CEO Makao Phuocdz! Hệ thống Titan Real-time đã sẵn sàng. Nhập vốn VNDC và chiến thôi!")
+            st.markdown("---")
+            k1, k2, k3 = st.columns(3)
+            k1.metric("🔵 ENTRY ZONE", f"{plan['entry']:.4f}", f"Margin: {bot.format_vndc(plan['margin'])}")
+            k2.metric("🟢 TAKE PROFIT (TP)", f"{plan['tp1']:.4f}", f"TP2: {plan['tp2']:.4f}")
+            k3.metric("🔴 STOP LOSS (SL)", f"{plan['sl']:.4f}", "Tuân thủ tuyệt đối")
+            
+        else:
+            st.error("⚠️ Thị trường đang quá nhiễu (Sideways). Bot không tìm thấy cơ hội > 65 điểm. Hãy nghỉ ngơi bảo toàn vốn!")
