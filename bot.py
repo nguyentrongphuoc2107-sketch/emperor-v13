@@ -35,8 +35,10 @@ st.markdown("""
     .thesis-box {
         border-left: 3px solid #FFD700; background-color: #0a0a0a;
         padding: 15px; margin-top: 15px; 
-        color: #ddd; font-style: italic; font-size: 0.9em;
+        color: #ddd; font-size: 0.95em;
         font-family: 'Segoe UI', sans-serif;
+        line-height: 1.6;
+        text-align: justify;
     }
     
     .status-badge {
@@ -78,10 +80,8 @@ class TitanBrain:
             r = requests.get(url, headers=self.headers, timeout=5)
             if r.status_code == 200:
                 data = r.json()
-                # Convert về dạng số [time, open, high, low, close, vol]
                 return [[float(x[0]), float(x[1]), float(x[2]), float(x[3]), float(x[4]), float(x[5])] for x in data], "LIVE (BINANCE)"
-        except Exception as e:
-            # print(f"Binance Error: {e}") # Debug only
+        except Exception:
             pass
 
         # 2. Dự phòng CoinGecko (Nếu Binance sập/chặn)
@@ -98,13 +98,11 @@ class TitanBrain:
                 r = requests.get(url, headers=self.headers, timeout=5)
                 if r.status_code == 200:
                     data = r.json()
-                    # CoinGecko không có Volume chuẩn trong OHLC, fake volume nhẹ để tính toán
                     formatted = [[x[0], x[1], x[2], x[3], x[4], 1000000] for x in data[-60:]]
                     return formatted, "LIVE (GECKO)"
         except:
             pass
         
-        # TUYỆT ĐỐI KHÔNG TRẢ VỀ DATA GIẢ (SIMULATION)
         return None, "DISCONNECTED"
 
     # --- XỬ LÝ TÍN HIỆU (V3 LOGIC) ---
@@ -138,7 +136,6 @@ class TitanBrain:
     def analyze(self, symbol):
         ohlcv, source = self.fetch_data(symbol)
         
-        # Nếu mất kết nối -> Bỏ qua ngay
         if not ohlcv or source == "DISCONNECTED": 
             return None
         
@@ -146,41 +143,55 @@ class TitanBrain:
         if d is None: return None
 
         score = 50
-        reasons = []
         
-        # --- LOGIC CHẤM ĐIỂM (NGHIÊM NGẶT HƠN) ---
+        # --- LOGIC CHẤM ĐIỂM ---
+        if d['close'] > d['ema89']: score += 20
+        else: score -= 20
         
-        # 1. Trend Filter (Quan trọng nhất)
-        if d['close'] > d['ema89']: 
-            score += 20
-            reasons.append("Uptrend (Trên EMA89)")
-        else: 
-            score -= 20
-            reasons.append("Downtrend (Dưới EMA89)")
+        if d['macd'] > d['signal_line']: score += 15
+        else: score -= 15
         
-        # 2. Momentum (MACD)
-        if d['macd'] > d['signal_line']:
-            score += 15
-            reasons.append("MACD Bullish")
-        else:
-            score -= 15
-            reasons.append("MACD Bearish")
-        
-        # 3. RSI Filter (Tránh đu đỉnh/bán đáy)
-        if d['rsi'] < 30: 
-            score += 10
-            reasons.append("RSI Quá Bán")
-        elif d['rsi'] > 70: 
-            score -= 10
-            reasons.append("RSI Quá Mua")
+        if d['rsi'] < 30: score += 10
+        elif d['rsi'] > 70: score -= 10
 
         # Quyết định tín hiệu
         signal = "NEUTRAL"
-        if score >= 75: signal = "LONG" # Cần điểm cao hơn để vào lệnh
+        if score >= 75: signal = "LONG"
         elif score <= 25: signal = "SHORT"
         
+        # --- GENERATE DISSERTATION (VĂN NGHỊ LUẬN MODE) ---
+        # Phần mở bài
+        if signal == "LONG":
+            intro = f"Thị trường đang phát đi những tín hiệu khởi sắc mạnh mẽ đối với mã <b>#{symbol}</b>. Phe bò (Buyers) đang thể hiện sự áp đảo tuyệt đối trên biểu đồ kỹ thuật, tạo tiền đề cho một đợt tăng trưởng bùng nổ."
+            trend_text = f"Xét về cấu trúc xu hướng, giá hiện đang giao dịch vững chắc <b>trên đường EMA89</b> (đường chỉ báo sinh tử). Đây là bằng chứng thép cho thấy dòng tiền lớn đang bảo vệ vị thế mua, biến mọi nhịp điều chỉnh thành cơ hội tích lũy."
+        elif signal == "SHORT":
+            intro = f"Cảnh báo đỏ đối với nhà đầu tư đang nắm giữ <b>#{symbol}</b>. Áp lực bán tháo đang bao trùm toàn bộ thị trường, phe gấu (Sellers) đang kiểm soát hoàn toàn cuộc chơi và đẩy giá về các vùng hỗ trợ thấp hơn."
+            trend_text = f"Về mặt xu hướng, việc giá sập gãy và nằm sâu <b>dưới đường EMA89</b> cho thấy cấu trúc tăng giá đã bị phá vỡ hoàn toàn. Mọi nỗ lực hồi phục yếu ớt đều đang bị dập tắt bởi áp lực bán chủ động."
+        else:
+            return {
+                "symbol": symbol, "signal": signal, "score": score,
+                "price": d['close'], "atr": 0, "thesis": "", "source": source
+            } # Neutral bỏ qua luôn để lọc cho sạch
+
+        # Phần thân bài (Momentum & RSI)
+        macd_val = "Cắt lên (Bullish)" if d['macd'] > d['signal_line'] else "Cắt xuống (Bearish)"
+        momentum_text = f"Phân tích động lượng cho thấy chỉ báo MACD đang ở trạng thái <b>{macd_val}</b>. Điều này xác nhận xung lực của xu hướng hiện tại là rất mạnh, không phải là tín hiệu nhiễu."
+        
+        rsi_text = ""
+        if d['rsi'] < 30:
+            rsi_text = f"Đặc biệt lưu ý, chỉ báo RSI đang rơi vào vùng <b>Quá bán (Oversold - {d['rsi']:.1f})</b>. Theo lý thuyết Dow, đây thường là vùng giá chiết khấu cực tốt để dòng tiền thông minh bắt đầu giải ngân."
+        elif d['rsi'] > 70:
+            rsi_text = f"Tuy nhiên, cần thận trọng khi RSI đã chạm vùng <b>Quá mua (Overbought - {d['rsi']:.1f})</b>. Dù xu hướng mạnh, nhưng các nhịp rung lắc để rũ bỏ tay yếu (weak hands) có thể xảy ra bất cứ lúc nào."
+        else:
+            rsi_text = f"Chỉ báo RSI đang ở vùng trung tính ({d['rsi']:.1f}), cho thấy dư địa để giá tiếp tục chạy theo xu hướng chính là vẫn còn rất lớn, chưa có dấu hiệu kiệt sức."
+
+        # Phần kết bài
+        conclusion = f"Tổng hợp lại, với điểm tin cậy đạt <b>{score}/100</b>, hệ thống Emperor V3000 khuyến nghị một lệnh <b>{signal}</b> ngay tại vùng giá hiện tại. Hãy tuân thủ tuyệt đối Stoploss để bảo toàn vốn trước sự khắc nghiệt của thị trường."
+
+        # Ghép bài văn
+        thesis = f"{intro}<br><br>📉 <b>PHÂN TÍCH KỸ THUẬT CHUYÊN SÂU:</b><br>- {trend_text}<br>- {momentum_text}<br>- {rsi_text}<br><br>🔮 <b>KẾT LUẬN ĐẦU TƯ:</b><br>{conclusion}"
+        
         atr_val = d['atr'] if not np.isnan(d['atr']) else d['close'] * 0.01
-        thesis = f"[{source}] " + ", ".join(reasons)
         
         return {
             "symbol": symbol, "signal": signal, "score": score,
@@ -192,9 +203,8 @@ class TitanBrain:
         entry = coin['price']
         atr = coin['atr']
         
-        # Chiến thuật Risk:Reward 1:2
         if coin['signal'] == "LONG":
-            sl = entry - (atr * 1.5) # Stoploss chặt hơn
+            sl = entry - (atr * 1.5)
             tp1 = entry + (atr * 2)
             tp2 = entry + (atr * 4)
         else:
@@ -202,14 +212,15 @@ class TitanBrain:
             tp1 = entry - (atr * 2)
             tp2 = entry - (atr * 4)
         
-        # Quản lý vốn: Chỉ đi 5% vốn cho 1 lệnh để sống sót
         margin = (cap * 0.05) / lev 
         return {"entry": entry, "tp1": tp1, "tp2": tp2, "sl": sl, "margin": margin}
 
-    # Module Telegram
     def send_telegram(self, symbol, signal, score, p, thesis, token, chat_id):
         if not token or not chat_id: return
         icon = "🟢 MÚC NGAY" if signal == "LONG" else "🔴 BÁN KHỐNG"
+        # Rút gọn thesis cho Tele đỡ dài dòng, chỉ lấy ý chính
+        short_thesis = thesis.replace("<br>", "\n").replace("<b>", "").replace("</b>", "")
+        
         url = f"https://api.telegram.org/bot{token}/sendMessage"
         msg = (
             f"🔥 *TITAN V3000 SIGNAL*\n"
@@ -220,7 +231,7 @@ class TitanBrain:
             f"🎯 TP1: {p['tp1']:,.4f}\n"
             f"🚀 TP2: {p['tp2']:,.4f}\n"
             f"🛡️ SL: {p['sl']:,.4f} (Tuyệt đối)\n\n"
-            f"📝 Logic: {thesis}"
+            f"📝 *PHÂN TÍCH:* Xem chi tiết trên Dashboard."
         )
         try:
             requests.post(url, json={"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"}, timeout=3)
@@ -229,13 +240,11 @@ class TitanBrain:
 # --- 4. GIAO DIỆN ĐIỀU KHIỂN ---
 bot = TitanBrain()
 
-# Session State để tránh spam tele
 if 'last_signal' not in st.session_state:
     st.session_state.last_signal = None
 
-st.title("🌌 EMPEROR V3000: REAL MARKET ONLY")
-st.caption("AI Trading Neural Network • NO SIMULATION • Safe Mode ON")
-
+st.title("🌌 EMPEROR V3000: ANALYST MODE")
+st.caption("AI Trading Neural Network • Deep Analysis • Safe Mode ON")
 
 with st.sidebar:
     st.header("⚙️ SYSTEM CONFIG")
@@ -250,7 +259,7 @@ with st.sidebar:
     enable_tele = st.checkbox("Kích hoạt bắn tín hiệu", value=False)
     
     st.markdown("---")
-    refresh = st.number_input("Scan Time (s):", value=60, min_value=15) # Tăng thời gian scan lên 60s để đỡ bị chặn
+    refresh = st.number_input("Scan Time (s):", value=60, min_value=15)
     auto = st.checkbox("🔮 AUTO-HUNT", value=True)
     if st.button("🚀 FORCE SCAN"): auto = True
 
@@ -260,27 +269,25 @@ if auto:
     with placeholder.container():
         st.info("📡 Titan đang quét dữ liệu thị trường thực...")
         
-        # Progress Bar ảo diệu
         progress_bar = st.progress(0)
         results = []
         
         for i, sym in enumerate(bot.targets):
             data = bot.analyze(sym)
-            if data: results.append(data)
+            if data and data['signal'] != "NEUTRAL": # Chỉ lấy con nào có signal
+                results.append(data)
             progress_bar.progress((i + 1) / len(bot.targets))
-            time.sleep(0.5) # Nghỉ 0.5s giữa các lần gọi API để tránh bị Ban IP
+            time.sleep(0.5)
             
         progress_bar.empty()
 
         if results:
-            # Chọn con ngon nhất
-            # Lọc những con có điểm số cao (Xa mức 50 nhất)
+            # Lọc lại lần nữa cho chắc
             valid_results = [r for r in results if r['score'] >= 75 or r['score'] <= 25]
             
             if valid_results:
                 best = sorted(valid_results, key=lambda x: abs(x['score']-50), reverse=True)[0]
                 
-                # Logic hiển thị
                 p = bot.plan(best, cap, lev)
                 c_color = "#00FF41" if best['signal'] == "LONG" else "#FF0041"
                 status_class = "live"
@@ -312,8 +319,8 @@ if auto:
                 c2.metric("TARGET 2 (MOON)", f"{p['tp2']:,.4f}")
                 c3.metric("STOPLOSS (HARD)", f"{p['sl']:,.4f}", delta_color="inverse")
 
-                # THESIS BOX
-                st.markdown(f"<div class='thesis-box'>🧬 <b>TITAN ANALYSIS:</b> {best['thesis']}</div>", unsafe_allow_html=True)
+                # THESIS BOX - VĂN NGHỊ LUẬN
+                st.markdown(f"<div class='thesis-box'>{best['thesis']}</div>", unsafe_allow_html=True)
                 
                 # LOGIC BẮN TELEGRAM
                 signal_signature = f"{best['symbol']}-{best['signal']}"
@@ -324,17 +331,28 @@ if auto:
                         st.toast(f"Đã bắn tín hiệu {best['symbol']}!", icon="🚀")
 
             else:
-                st.warning("⚠️ Thị trường Sideway (Đi ngang). Bot không tìm thấy điểm vào an toàn.")
+                # KHÔNG CÓ KÈO - BÁO CỰC GẮT
+                st.warning("⚠️ KHÔNG CÓ KÈO NÀO RA HỒN CẢ!")
                 st.markdown("""
-                    <div style='text-align:center; color:#555; padding:20px;'>
-                        Bot đang chờ đợi một cú Breakout rõ ràng.<br>
-                        <i>"Tiền chỉ được chuyển từ người thiếu kiên nhẫn sang người kiên nhẫn."</i>
+                    <div style='text-align:center; color:#888; padding:50px; border: 1px dashed #333;'>
+                        <h2 style='color: #FF4141'>⛔ MARKET SIDEWAY - ĐI NGỦ ĐI!</h2>
+                        <p>Thị trường đang chạy như rùa bò, không có tín hiệu nào đủ chuẩn (Score > 75).<br>
+                        Cố đấm ăn xôi giờ này chỉ có cúng tiền cho sàn thôi.</p>
+                        <br>
+                        <i>"Thà chảy nước miếng còn hơn chảy nước mắt."</i>
                     </div>
                 """, unsafe_allow_html=True)
         else:
-            st.error("⚠️ KHÔNG LẤY ĐƯỢC DỮ LIỆU. Vui lòng kiểm tra mạng hoặc F5 lại.")
+            # KHÔNG CÓ KÈO - BÁO CỰC GẮT (Trường hợp list rỗng)
+            st.warning("⚠️ KHÔNG CÓ KÈO NÀO RA HỒN CẢ!")
+            st.markdown("""
+                <div style='text-align:center; color:#888; padding:50px; border: 1px dashed #333;'>
+                    <h2 style='color: #FF4141'>⛔ MARKET SIDEWAY - ĐI NGỦ ĐI!</h2>
+                    <p>Thị trường đang chạy như rùa bò, không có tín hiệu nào đủ chuẩn.<br>
+                    Tắt máy ra ngoài chạm cỏ đi CEO.</p>
+                </div>
+            """, unsafe_allow_html=True)
 
-    # Đếm ngược
     time.sleep(1)
     if auto:
         with st.empty():
