@@ -15,10 +15,9 @@ TELEGRAM_TOKEN = get_secret("TELEGRAM_TOKEN", "8526079835:AAEmdcFeACgvqdWF8vfkWG
 CHAT_ID = get_secret("CHAT_ID", "1654323145")
 
 def send_telegram_alert(symbol, signal, score, entry, tp1, tp2, sl, reasons):
-    """Gửi tín hiệu Thần Thánh về Telegram"""
     icon = "🟢" if signal == "LONG" else "🔴"
     msg = (
-        f"👹 *DEMON V17 - GOD MODE ACTIVATED* {icon}\n\n"
+        f"👹 *DEMON V17 - GOD MODE* {icon}\n\n"
         f"💎 *Asset:* #{symbol}\n"
         f"🚀 *Signal:* {signal}\n"
         f"💯 *Confidence:* {score}/100\n"
@@ -27,17 +26,17 @@ def send_telegram_alert(symbol, signal, score, entry, tp1, tp2, sl, reasons):
         f"🎯 TP1: {tp1:.4f}\n"
         f"🎯 TP2: {tp2:.4f}\n"
         f"🛑 SL: {sl:.4f}\n\n"
-        f"🧠 *Phân tích Tinh hoa:*\n"
+        f"🧠 *Phân tích:*\n"
         f"{' • '.join(reasons)}\n"
-        f"_Kiểm tra chart ngay!_"
+        f"_Check Chart!_"
     )
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={msg}&parse_mode=Markdown"
     try:
         requests.get(url, timeout=5)
-    except:
-        pass
+    except Exception as e:
+        st.error(f"Lỗi gửi Telegram: {e}")
 
-# --- 2. CONFIG GIAO DIỆN SIÊU CẤP ---
+# --- 2. GIAO DIỆN ---
 st.set_page_config(page_title="DEMON GOD MODE V17", layout="wide")
 st.markdown("""
 <style>
@@ -48,15 +47,11 @@ st.markdown("""
         text-align: center; box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
     }
     .coin-header {font-size: 60px !important; font-weight: 900; color: #FFD700; text-shadow: 0 0 10px #FFD700;}
-    .price-display {font-size: 32px !important; font-weight: bold; color: #fff;}
-    .reason-box {
-        border-left: 3px solid #00FF00; padding-left: 10px; margin-bottom: 8px; 
-        font-size: 14px; color: #ccc;
-    }
+    .reason-box {border-left: 3px solid #00FF00; padding-left: 10px; margin-bottom: 8px; font-size: 14px; color: #ccc;}
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. CLASS TITAN BRAIN (V17) ---
+# --- 3. LOGIC TITAN BRAIN ---
 class TitanBrain:
     def __init__(self):
         try:
@@ -117,18 +112,15 @@ class TitanBrain:
 
             recent = df.iloc[-10:-1]
             swing_low, swing_high = recent['low'].min(), recent['high'].max()
-
             avg_vol = df['volume'].rolling(20).mean().iloc[-1]
-            cur_vol = df['volume'].iloc[-1]
-            vol_spike = cur_vol > (avg_vol * 1.5)
+            vol_spike = df['volume'].iloc[-1] > (avg_vol * 1.5)
 
             c1, c3 = df.iloc[-4], df.iloc[-2]
             fvg = "Bullish FVG" if c1['high'] < c3['low'] else ("Bearish FVG" if c1['low'] > c3['high'] else None)
 
             return {
                 "symbol": symbol, "price": df['close'].iloc[-1], "atr": atr,
-                "rsi": df['rsi'].iloc[-1], 
-                "macd": df['macd'].iloc[-1], "macds": df['signal_line'].iloc[-1],
+                "rsi": df['rsi'].iloc[-1], "macd": df['macd'].iloc[-1], "macds": df['signal_line'].iloc[-1],
                 "bb_upper": df['upper_bb'].iloc[-1], "bb_lower": df['lower_bb'].iloc[-1],
                 "trend_15m": trend_15m, "trend_4h": trend_4h, "ema_50": ema_50_15m,
                 "vol_spike": vol_spike, "spread": spread_pct, "fvg": fvg,
@@ -143,14 +135,17 @@ class TitanBrain:
             my_bar = st.progress(0, text=progress_text)
             
             raw_contexts = []
-            total_coins = len(self.target_symbols)
+            total = len(self.target_symbols)
             for i, symbol in enumerate(self.target_symbols):
                 ctx = self.fetch_market_context(symbol)
                 if ctx: raw_contexts.append(ctx)
                 time.sleep(0.1) 
-                my_bar.progress((i + 1) / total_coins, text=f"Đang phân tích {symbol}...")
+                my_bar.progress((i + 1) / total, text=f"Đang phân tích {symbol}...")
             
             my_bar.empty()
+
+            highest_score_log = 0 # Để log ra màn hình
+            best_candidate_log = "Không có"
 
             for ctx in raw_contexts:
                 if ctx['spread'] > 0.15: continue
@@ -159,40 +154,51 @@ class TitanBrain:
                 reasons = []
                 signal = "NEUTRAL"
                 
-                bullish_structure = ctx['price'] > ctx['ema_50'] and ctx['trend_15m'] == "UP"
-                if bullish_structure:
+                # Logic LONG
+                bullish = ctx['price'] > ctx['ema_50'] and ctx['trend_15m'] == "UP"
+                if bullish:
                     if ctx['rsi'] < 75 or (ctx['rsi'] < 85 and ctx['vol_spike']):
                         signal = "LONG"
-                        score += 10; reasons.append("Cấu trúc giá Tăng (Trên EMA 50)")
-                        if ctx['macd'] > ctx['macds']: score += 15; reasons.append("MACD cắt lên (Momentum Tăng)")
-                        if ctx['price'] > ctx['bb_upper'] * 0.99: score += 10; reasons.append("Giá bám dải trên BB")
-                        if ctx['trend_4h'] == "UP": score += 15; reasons.append("Đồng pha khung 4H")
+                        score += 10; reasons.append("Giá > EMA 50 (Up Trend)")
+                        if ctx['macd'] > ctx['macds']: score += 15; reasons.append("MACD cắt lên")
+                        if ctx['price'] > ctx['bb_upper'] * 0.99: score += 10; reasons.append("Bám biên trên BB")
+                        if ctx['trend_4h'] == "UP": score += 15; reasons.append("Đồng pha 4H")
 
-                bearish_structure = ctx['price'] < ctx['ema_50'] and ctx['trend_15m'] == "DOWN"
-                if bearish_structure:
+                # Logic SHORT
+                bearish = ctx['price'] < ctx['ema_50'] and ctx['trend_15m'] == "DOWN"
+                if bearish:
                     if ctx['rsi'] > 25 or (ctx['rsi'] > 15 and ctx['vol_spike']):
                         signal = "SHORT"
-                        score += 10; reasons.append("Cấu trúc giá Giảm (Dưới EMA 50)")
-                        if ctx['macd'] < ctx['macds']: score += 15; reasons.append("MACD cắt xuống (Momentum Giảm)")
-                        if ctx['price'] < ctx['bb_lower'] * 1.01: score += 10; reasons.append("Giá bám dải dưới BB")
-                        if ctx['trend_4h'] == "DOWN": score += 15; reasons.append("Đồng pha khung 4H")
+                        score += 10; reasons.append("Giá < EMA 50 (Down Trend)")
+                        if ctx['macd'] < ctx['macds']: score += 15; reasons.append("MACD cắt xuống")
+                        if ctx['price'] < ctx['bb_lower'] * 1.01: score += 10; reasons.append("Bám biên dưới BB")
+                        if ctx['trend_4h'] == "DOWN": score += 15; reasons.append("Đồng pha 4H")
 
                 if signal != "NEUTRAL":
-                    if ctx['vol_spike']: score += 15; reasons.append("⚡ Volume Đột biến")
-                    if ctx['fvg']: score += 10; reasons.append(f"Phản ứng tại {ctx['fvg']}")
+                    if ctx['vol_spike']: score += 15; reasons.append("Volume Đột biến")
+                    if ctx['fvg']: score += 10; reasons.append(f"Phản ứng {ctx['fvg']}")
 
-                if score >= 65 and signal != "NEUTRAL":
+                # Log điểm cao nhất để user biết bot đang chạy
+                if score > highest_score_log:
+                    highest_score_log = score
+                    best_candidate_log = f"{ctx['symbol']} ({signal})"
+
+                # [QUAN TRỌNG] Hạ chuẩn xuống 60 để dễ ra kèo hơn
+                if score >= 60 and signal != "NEUTRAL":
                     analyzed_data.append({
                         "symbol": ctx['symbol'].replace("/USDT", ""),
                         "price": ctx['price'], "atr": ctx['atr'],
                         "signal": signal, "score": score, "reasons": reasons,
                         "rsi": ctx['rsi'], "low": ctx['low'], "high": ctx['high']
                     })
+            
+            # Hiển thị log nhẹ
+            st.caption(f"📡 Vừa quét xong: Top Score {highest_score_log}/100 ({best_candidate_log})")
 
             if not analyzed_data: return None
             return sorted(analyzed_data, key=lambda x: x['score'], reverse=True)[0]
         except Exception as e:
-            st.error(f"Lỗi khi quét: {e}")
+            st.error(f"Lỗi quét: {e}")
             return None
 
     def calculate_steel_risk(self, coin, capital, lev, mode):
@@ -203,84 +209,60 @@ class TitanBrain:
         if coin['signal'] == "LONG":
             sl = entry - (atr * atr_mult)
             if (entry - sl) / entry < 0.004: sl = entry * 0.996
-            tp1 = entry + (entry - sl) * 1.5 
-            tp2 = entry + (entry - sl) * 3.0 
+            tp1, tp2 = entry + (entry - sl) * 1.5, entry + (entry - sl) * 3.0 
         else:
             sl = entry + (atr * atr_mult)
             if (sl - entry) / entry < 0.004: sl = entry * 1.004
-            tp1 = entry - (sl - entry) * 1.5
-            tp2 = entry - (sl - entry) * 3.0
+            tp1, tp2 = entry - (sl - entry) * 1.5, entry - (sl - entry) * 3.0
 
-        risk_per_trade = capital * 0.05
-        dist_pct = abs(entry - sl) / entry
-        pos_size = risk_per_trade / dist_pct
+        pos_size = (capital * 0.05) / (abs(entry - sl) / entry)
         margin = min(pos_size / lev, capital)
-        
         return {"entry": entry, "tp1": tp1, "tp2": tp2, "sl": sl, "margin": margin}
 
-# --- 4. MAIN APP ---
+# --- 4. RUN APP ---
 bot = TitanBrain()
-st.title("👹 DEMON V17 - GOD MODE TRADING")
-st.caption("🔥 Tích hợp: Bollinger Bands, MACD, Volume Spike, Smart Scoring & Multi-Timeframe")
+st.title("👹 DEMON V17 - GOD MODE")
+st.caption("🔥 Fix: Indentation, Lower Threshold (60), Status Log")
 
 with st.sidebar:
     st.header("⚙️ CẤU HÌNH")
     cap = st.number_input("Vốn (VNDC):", value=500000, step=100000)
-    lev = st.slider("Đòn bẩy (Leverage):", 5, 125, 20)
-    mode = st.radio("Style đánh:", ["Scalping (Nhanh)", "Học Đường/Qua Đêm (Swing)"])
-    
+    lev = st.slider("Đòn bẩy:", 5, 125, 20)
+    mode = st.radio("Style:", ["Scalping", "Swing"])
     st.markdown("---")
-    st.header("🤖 AUTO-PILOT")
-    auto_run = st.checkbox("🔄 Kích hoạt Auto-Bot 24/7")
-    refresh_rate = st.number_input("Chu kỳ quét (giây):", min_value=60, value=300, step=60)
-    
-    manual_scan = st.button("🚀 QUÉT NGAY (MANUAL)", type="primary")
+    auto_run = st.checkbox("🔄 Auto-Bot 24/7", value=True)
+    refresh_rate = st.number_input("Chu kỳ (s):", min_value=30, value=120)
+    manual_scan = st.button("🚀 QUÉT NGAY")
 
 if auto_run or manual_scan:
     if auto_run:
         with st.empty():
-            for seconds in range(refresh_rate, 0, -1):
-                st.write(f"⏳ Bot sẽ quét lại sau {seconds} giây...")
+            for s in range(refresh_rate, 0, -1):
+                st.write(f"⏳ Quét lại sau {s}s...")
                 time.sleep(1)
-            st.write("⚡ Đang quét...")
+            st.write("⚡ Scanning...")
 
-    best_coin = bot.get_god_mode_analysis()
+    best = bot.get_god_mode_analysis()
     
-    if best_coin:
-        plan = bot.calculate_steel_risk(best_coin, cap, lev, mode)
-        
-        send_telegram_alert(
-            best_coin['symbol'], best_coin['signal'], best_coin['score'], 
-            plan['entry'], plan['tp1'], plan['tp2'], plan['sl'], best_coin['reasons']
-        )
-        if manual_scan: st.toast("Đã bắn tín hiệu lên Vũ Trụ Telegram!", icon="🛰️")
+    if best:
+        p = bot.calculate_steel_risk(best, cap, lev, mode)
+        send_telegram_alert(best['symbol'], best['signal'], best['score'], p['entry'], p['tp1'], p['tp2'], p['sl'], best['reasons'])
+        if manual_scan: st.toast("Đã có kèo! Check Telegram.", icon="🔥")
 
         c1, c2 = st.columns([1.5, 2.5])
         with c1:
-            color = "#00FF00" if best_coin['signal'] == "LONG" else "#FF0000"
-            st.markdown(f"""
-            <div class='metric-card'>
-                <div style='color: #888;'>VICTORY TARGET</div>
-                <div class='coin-header'>{best_coin['symbol']}</div>
-                <div style='font-size: 48px; font-weight: 900; color: {color}'>{best_coin['signal']}</div>
-                <div style='margin-top: 10px; background: #333; color: white;'>RSI: {best_coin['rsi']:.1f}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
+            clr = "#00FF00" if best['signal'] == "LONG" else "#FF0000"
+            st.markdown(f"<div class='metric-card'><div class='coin-header'>{best['symbol']}</div><div style='font-size: 48px; color: {clr}'>{best['signal']}</div><div>RSI: {best['rsi']:.1f}</div></div>", unsafe_allow_html=True)
         with c2:
-            st.markdown(f"### 🛡️ CONFIDENCE SCORE: {best_coin['score']}/100")
-            st.write("Logic phân tích:")
-            for r in best_coin['reasons']:
-                st.markdown(f"<div class='reason-box'>➤ {r}</div>", unsafe_allow_html=True)
+            st.markdown(f"### 🛡️ SCORE: {best['score']}/100")
+            for r in best['reasons']: st.markdown(f"<div class='reason-box'>➤ {r}</div>", unsafe_allow_html=True)
         
         st.markdown("---")
         k1, k2, k3 = st.columns(3)
-        k1.metric("🔵 ENTRY ZONE", f"{plan['entry']:.4f}", f"Margin: {bot.format_vndc(plan['margin'])}")
-        k2.metric("🟢 TAKE PROFIT (TP)", f"{plan['tp1']:.4f}", f"TP2: {plan['tp2']:.4f}")
-        k3.metric("🔴 STOP LOSS (SL)", f"{plan['sl']:.4f}", "Tuân thủ tuyệt đối")
-    
+        k1.metric("ENTRY", f"{p['entry']:.4f}", f"Margin: {bot.format_vndc(p['margin'])}")
+        k2.metric("TP", f"{p['tp1']:.4f}", f"TP2: {p['tp2']:.4f}")
+        k3.metric("SL", f"{p['sl']:.4f}", "Tuyệt đối")
     elif manual_scan:
-        st.error("⚠️ Thị trường đang quá nhiễu (Sideways).")
+        st.warning("⚠️ Chưa có kèo đạt chuẩn 60 điểm.")
 
-    if auto_run:
-        st.rerun()
+    if auto_run: st.rerun()
