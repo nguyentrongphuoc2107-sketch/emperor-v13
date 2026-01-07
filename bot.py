@@ -5,14 +5,12 @@ import time
 import ccxt
 import requests
 
-# --- 1. CONFIG TELEGRAM & SECRETS (ĐÃ INJECT BẢO MẬT) ---
-# Bot sẽ tự tìm Token trong st.secrets trước, nếu không có mới dùng code cứng (để test local)
+# --- 1. CONFIG TELEGRAM & SECRETS ---
 def get_secret(key, default_value):
     if key in st.secrets:
         return st.secrets[key]
     return default_value
 
-# [INJECTED] Tự động lấy từ Secrets của Streamlit Cloud
 TELEGRAM_TOKEN = get_secret("TELEGRAM_TOKEN", "8526079835:AAEmdcFeACgvqdWF8vfkWG46Qq7_uZ7ztmE") 
 CHAT_ID = get_secret("CHAT_ID", "1654323145")
 
@@ -58,7 +56,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. CLASS TITAN BRAIN (GIỮ NGUYÊN BẢN V17) ---
+# --- 3. CLASS TITAN BRAIN (V17) ---
 class TitanBrain:
     def __init__(self):
         try:
@@ -70,6 +68,9 @@ class TitanBrain:
             'DOGE/USDT', 'PEPE/USDT', 'WIF/USDT', 
             'NEAR/USDT', 'APT/USDT', 'SUI/USDT', 'LINK/USDT', 'AVAX/USDT', 'FET/USDT', 'RNDR/USDT'
         ]
+
+    def format_vndc(self, amount):
+        return f"{amount:,.0f} VNDC"
 
     def calculate_bollinger_bands(self, df, period=20, std_dev=2):
         df['ma_20'] = df['close'].rolling(window=period).mean()
@@ -137,7 +138,6 @@ class TitanBrain:
 
     def get_god_mode_analysis(self):
         analyzed_data = []
-        # [INJECTED] Thêm try-except để tránh crash khi auto-run
         try:
             progress_text = "🧠 Titan Brain đang quét thị trường (GOD MODE)..."
             my_bar = st.progress(0, text=progress_text)
@@ -147,7 +147,7 @@ class TitanBrain:
             for i, symbol in enumerate(self.target_symbols):
                 ctx = self.fetch_market_context(symbol)
                 if ctx: raw_contexts.append(ctx)
-                time.sleep(0.1) # [INJECTED] Nghỉ nhẹ để tránh rate limit của Binance
+                time.sleep(0.1) 
                 my_bar.progress((i + 1) / total_coins, text=f"Đang phân tích {symbol}...")
             
             my_bar.empty()
@@ -223,7 +223,6 @@ bot = TitanBrain()
 st.title("👹 DEMON V17 - GOD MODE TRADING")
 st.caption("🔥 Tích hợp: Bollinger Bands, MACD, Volume Spike, Smart Scoring & Multi-Timeframe")
 
-# [INJECTED] Sidebar Control cho Auto-Bot
 with st.sidebar:
     st.header("⚙️ CẤU HÌNH")
     cap = st.number_input("Vốn (VNDC):", value=500000, step=100000)
@@ -237,9 +236,7 @@ with st.sidebar:
     
     manual_scan = st.button("🚀 QUÉT NGAY (MANUAL)", type="primary")
 
-# Logic Chạy
 if auto_run or manual_scan:
-    # Nếu là auto-run, hiển thị trạng thái
     if auto_run:
         with st.empty():
             for seconds in range(refresh_rate, 0, -1):
@@ -252,14 +249,12 @@ if auto_run or manual_scan:
     if best_coin:
         plan = bot.calculate_steel_risk(best_coin, cap, lev, mode)
         
-        # Gửi Telegram
         send_telegram_alert(
             best_coin['symbol'], best_coin['signal'], best_coin['score'], 
             plan['entry'], plan['tp1'], plan['tp2'], plan['sl'], best_coin['reasons']
         )
         if manual_scan: st.toast("Đã bắn tín hiệu lên Vũ Trụ Telegram!", icon="🛰️")
 
-        # UI Hiển thị
         c1, c2 = st.columns([1.5, 2.5])
         with c1:
             color = "#00FF00" if best_coin['signal'] == "LONG" else "#FF0000"
@@ -287,6 +282,5 @@ if auto_run or manual_scan:
     elif manual_scan:
         st.error("⚠️ Thị trường đang quá nhiễu (Sideways).")
 
-    # [INJECTED] Logic Rerun cho Auto
     if auto_run:
         st.rerun()
